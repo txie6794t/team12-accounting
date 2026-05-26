@@ -1,1 +1,0 @@
-# team12-accounting
