@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>跨裝置雲端記帳系統</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="container">
+    <header class="top-bar">
+      <div>
+        <h1>跨裝置雲端記帳系統</h1>
+        <p class="subtitle">簡易記帳、紀錄查詢與收支統計</p>
+      </div>
+
+      <div id="userPanel" class="user-panel hidden">
+        <div class="user-info">
+          <span>登入者：<strong id="currentUserName"></strong></span>
+          <button id="logoutBtn" type="button" class="secondary-btn">登出</button>
+        </div>
+        <div class="qr-block">
+          <img id="qrImage" alt="直接登入 QR Code" />
+          <button id="copyLoginLinkBtn" type="button" class="secondary-btn small-btn">複製登入連結</button>
+        </div>
+      </div>
+    </header>
+
+    <section id="loginSection" class="card login-card">
+      <h2>帳號</h2>
+      <p class="hint">請選擇要登入既有帳號，或註冊新的 Demo 帳號。使用者名稱不能重複。</p>
+
+      <div class="mode-tabs" role="tablist" aria-label="登入或註冊">
+        <label>
+          <input type="radio" name="authMode" value="login" checked />
+          登入
+        </label>
+        <label>
+          <input type="radio" name="authMode" value="register" />
+          註冊
+        </label>
+      </div>
+
+      <form id="loginForm" class="login-form">
+        <label>
+          名稱
+          <input type="text" id="loginName" placeholder="請輸入登入者名稱" required />
+        </label>
+
+        <label>
+          密碼
+          <input type="password" id="loginPassword" placeholder="請輸入密碼" required />
+        </label>
+
+        <button id="authSubmitBtn" type="submit">登入</button>
+      </form>
+    </section>
+
+    <section id="appSection" class="hidden">
+      <section class="card">
+        <h2>新增紀錄</h2>
+
+        <form id="recordForm" class="record-form">
+          <label>
+            類型
+            <select id="type" required>
+              <option value="expense">支出 ➖</option>
+              <option value="income">收入 ➕</option>
+            </select>
+          </label>
+
+          <label>
+            日期
+            <input type="date" id="date" required />
+          </label>
+
+          <label>
+            金額
+            <input type="number" id="amount" min="1" step="1" required />
+          </label>
+
+          <label>
+            類別
+            <select id="category" required>
+              <option value="">請選擇類別</option>
+            </select>
+          </label>
+
+          <label class="note-field">
+            備註
+            <input type="text" id="note" placeholder="可不填" />
+          </label>
+
+          <button type="submit" class="add-btn">新增</button>
+        </form>
+      </section>
+
+      <section class="stats">
+        <div class="stat-card income">
+          <span>本月收入</span>
+          <strong id="monthlyIncome">0</strong>
+          <small>總收入：<b id="totalIncome">0</b></small>
+        </div>
+        <div class="stat-card expense">
+          <span>本月支出</span>
+          <strong id="monthlyExpense">0</strong>
+          <small>總支出：<b id="totalExpense">0</b></small>
+        </div>
+        <div class="stat-card balance">
+          <span>本月結餘</span>
+          <strong id="monthlyBalance">0</strong>
+          <small>總餘額：<b id="balance">0</b></small>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="section-title-row">
+          <div>
+            <h2 id="weeklyChartTitle">近 10 周支出折線圖</h2>
+            <p class="hint chart-hint">可選擇要統計的支出類別與週數。未勾選「納入周統計」的支出不會列入圖表。</p>
+          </div>
+        </div>
+
+        <div class="chart-controls">
+          <label>
+            顯示週數
+            <select id="weekRangeSelect">
+              <option value="4">近 4 周</option>
+              <option value="8">近 8 周</option>
+              <option value="10" selected>近 10 周</option>
+              <option value="12">近 12 周</option>
+              <option value="26">近 26 周</option>
+            </select>
+          </label>
+
+          <div>
+            <div class="control-title">支出類別</div>
+            <div id="chartCategoryFilters" class="filter-chips"></div>
+          </div>
+        </div>
+
+        <div class="chart-wrap">
+          <canvas id="weeklyChart" width="960" height="360" aria-label="支出折線圖"></canvas>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="list-header">
+          <h2>紀錄列表</h2>
+          <div class="data-actions">
+            <button id="exportCsvBtn" type="button" class="secondary-btn">匯出 CSV</button>
+            <label class="file-btn">
+              匯入 CSV
+              <input type="file" id="importCsvInput" accept=".csv,text/csv" />
+            </label>
+            <button id="deleteAllBtn" type="button" class="danger-btn">刪除所有資料</button>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>日期</th>
+                <th>類型</th>
+                <th>金額</th>
+                <th>類別</th>
+                <th>備註</th>
+                <th>納入周統計</th>
+              </tr>
+            </thead>
+            <tbody id="recordTable"></tbody>
+          </table>
+        </div>
+
+        <p id="emptyMessage" class="empty-message">目前沒有屬於這位登入者的紀錄。</p>
+      </section>
+    </section>
+  </main>
+
+  <script type="module" src="app.js?v=12"></script>
+</body>
+</html>
