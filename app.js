@@ -14,7 +14,7 @@ import {
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
-console.log("accounting-app Firebase version v12 loaded");
+console.log("accounting-app Firebase final2 version loaded");
 
 const firebaseConfig = {
   apiKey: "AIzaSyCYp5QyVbA6g9aqGe_u0PJSa8Ioc1PEOQk",
@@ -35,7 +35,6 @@ const categoryOptions = {
     "吃飯 🍱",
     "交通 🚌",
     "娛樂 🎮",
-    "生活費 🧾",
     "生活用品 🧻",
     "學習 📚",
     "房租 🏠",
@@ -49,7 +48,8 @@ const categoryOptions = {
     "投資收入 📈",
     "補助 💰",
     "禮金 🎁",
-    "其他 ✨"
+    "其他 ✨",
+    "生活費 🧾"
   ]
 };
 
@@ -93,6 +93,7 @@ const chartCategoryFilters = document.getElementById("chartCategoryFilters");
 const weeklyChart = document.getElementById("weeklyChart");
 const chartCtx = weeklyChart.getContext("2d");
 let selectedChartCategories = new Set(categoryOptions.expense);
+let chartFiltersInitialized = false;
 
 document.getElementById("date").valueAsDate = new Date();
 typeSelect.addEventListener("change", updateCategoryOptions);
@@ -230,7 +231,6 @@ form.addEventListener("submit", function (event) {
     amount,
     category: categorySelect.value,
     note: document.getElementById("note").value.trim(),
-    includeInWeekly: typeSelect.value === "expense",
     createdAt: serverTimestamp()
   };
 
@@ -251,21 +251,28 @@ form.addEventListener("submit", function (event) {
   }, 500);
 });
 
-recordTable.addEventListener("change", async function (event) {
-  if (!event.target.classList.contains("weekly-check")) {
+recordTable.addEventListener("click", async function (event) {
+  if (!event.target.classList.contains("delete-record-btn")) {
     return;
   }
 
   const id = event.target.dataset.id;
+  const ok = confirm("確定要刪除這筆紀錄嗎？這個動作不能復原。");
+
+  if (!ok) {
+    return;
+  }
+
+  event.target.disabled = true;
+  event.target.textContent = "刪除中";
 
   try {
-    await updateDoc(doc(db, "records", id), {
-      includeInWeekly: event.target.checked
-    });
+    await deleteDoc(doc(db, "records", id));
   } catch (error) {
     console.error(error);
-    alert("更新統計勾選失敗，請稍後再試。");
-    event.target.checked = !event.target.checked;
+    alert("刪除單筆紀錄失敗，請稍後再試。");
+    event.target.disabled = false;
+    event.target.textContent = "刪除";
   }
 });
 
@@ -298,7 +305,6 @@ importCsvInput.addEventListener("change", async function (event) {
         ...record,
         userId: currentUserId,
         userName: currentUser,
-        includeInWeekly: record.type === "expense" && record.includeInWeekly !== false,
         createdAt: serverTimestamp()
       });
     }
@@ -389,10 +395,9 @@ function getAllExpenseCategories() {
 function renderChartCategoryFilters() {
   const categories = getAllExpenseCategories();
 
-  for (const category of categories) {
-    if (!selectedChartCategories.has(category) && categoryOptions.expense.includes(category)) {
-      selectedChartCategories.add(category);
-    }
+  if (!chartFiltersInitialized) {
+    selectedChartCategories = new Set(categories);
+    chartFiltersInitialized = true;
   }
 
   chartCategoryFilters.innerHTML = "";
@@ -411,7 +416,7 @@ function renderChartCategoryFilters() {
         selectedChartCategories.delete(category);
       }
 
-      render();
+      drawWeeklyChart(records);
     });
 
     label.appendChild(checkbox);
@@ -587,7 +592,6 @@ function getWeeklyExpenseData(userRecords) {
   for (const record of userRecords) {
     if (
       record.type !== "expense" ||
-      record.includeInWeekly === false ||
       !selectedChartCategories.has(record.category)
     ) {
       continue;
@@ -619,7 +623,7 @@ function drawWeeklyChart(userRecords) {
   chartCtx.fillRect(0, 0, width, height);
 
   const data = getWeeklyExpenseData(userRecords);
-  weeklyChartTitle.textContent = `近 ${getSelectedWeekCount()} 周支出折線圖`;
+  weeklyChartTitle.textContent = "支出折線圖";
   const maxValue = Math.max(...data.map((item) => item.total), 1);
   const chartWidth = width - padding.left - padding.right;
   const chartHeight = height - padding.top - padding.bottom;
@@ -728,11 +732,7 @@ function render() {
       <td>${record.category}</td>
       <td>${record.note || "-"}</td>
       <td>
-        ${
-          record.type === "expense"
-            ? `<input class="weekly-check" type="checkbox" data-id="${record.id}" ${record.includeInWeekly !== false ? "checked" : ""} />`
-            : "-"
-        }
+        <button type="button" class="delete-record-btn" data-id="${record.id}">刪除</button>
       </td>
     `;
     recordTable.appendChild(row);
@@ -756,14 +756,13 @@ function exportRecordsToCsv() {
     return;
   }
 
-  const headers = ["日期", "類型", "金額", "類別", "備註", "納入周統計"];
+  const headers = ["日期", "類型", "金額", "類別", "備註"];
   const rows = records.map((record) => [
     record.date,
     record.type === "income" ? "收入" : "支出",
     record.amount,
     record.category,
-    record.note || "",
-    record.type === "expense" ? (record.includeInWeekly !== false ? "是" : "否") : "不適用"
+    record.note || ""
   ]);
 
   const csv = [headers, ...rows]
@@ -805,7 +804,6 @@ function parseCsvRecords(text) {
   const amountIndex = getIndex("金額", "amount");
   const categoryIndex = getIndex("類別", "category");
   const noteIndex = getIndex("備註", "note");
-  const weeklyIndex = getIndex("納入周統計", "includeInWeekly");
 
   if (dateIndex === undefined || typeIndex === undefined || amountIndex === undefined || categoryIndex === undefined) {
     throw new Error("CSV 缺少必要欄位");
@@ -814,15 +812,13 @@ function parseCsvRecords(text) {
   return rows.slice(1).map((row) => {
     const typeText = (row[typeIndex] || "").trim();
     const type = typeText === "收入" || typeText === "income" ? "income" : "expense";
-    const includeText = weeklyIndex !== undefined ? (row[weeklyIndex] || "").trim() : "是";
 
     return {
       date: (row[dateIndex] || "").trim(),
       type,
       amount: Number(row[amountIndex] || 0),
       category: (row[categoryIndex] || "").trim(),
-      note: noteIndex !== undefined ? (row[noteIndex] || "").trim() : "",
-      includeInWeekly: type === "expense" && !["否", "false", "0", "no", "不適用", "-"].includes(includeText.toLowerCase())
+      note: noteIndex !== undefined ? (row[noteIndex] || "").trim() : ""
     };
   }).filter((record) =>
     record.date &&

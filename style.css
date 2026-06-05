@@ -198,7 +198,7 @@ button:hover {
 
 table {
   width: 100%;
-  min-width: 820px;
+  min-width: 760px;
   border-collapse: collapse;
 }
 
@@ -213,12 +213,6 @@ td {
 th {
   color: #34495e;
   font-weight: 800;
-}
-
-.weekly-check {
-  width: 20px;
-  height: 20px;
-  cursor: pointer;
 }
 
 .empty-message {
@@ -459,4 +453,20 @@ th {
   .chart-controls {
     grid-template-columns: 1fr;
   }
+}
+
+
+.delete-record-btn {
+  width: auto;
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 8px;
+  background: #d93025;
+  color: #fff;
+  font-size: 14px;
+}
+
+.delete-record-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
 }
